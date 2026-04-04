@@ -1,0 +1,19 @@
+# Flutter
+build/
+.dart_tool/
+.packages
+pubspec.lock
+
+# Supabase
+supabase/.temp/
+supabase/.branches/
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
