@@ -5,11 +5,9 @@ WITH base AS (
         tp.fecha,
         tp.tipo_turno,
         tp.estado,
-        tp.area,
-        tp.subturno,
         tp.observacion,
 
-        -- Flags básicos
+        -- Flag básico: ¿hubo trabajo real?
         (tp.estado NOT IN ('franco','descanso','vacaciones','enfermo','falta')) AS turno_realizado,
 
         -- Horas normales (placeholder)
@@ -21,12 +19,8 @@ WITH base AS (
             ELSE 0
         END AS horas_normales,
 
-        -- Horas extra (placeholder)
-        CASE 
-            WHEN tp.subturno = 'medio_extra' THEN 4
-            WHEN tp.subturno = 'doble' THEN 8
-            ELSE 0
-        END AS horas_extra
+        -- Horas extra (sin subturno → siempre 0)
+        0 AS horas_extra
     FROM public.turnos_personal tp
 ),
 
@@ -51,9 +45,10 @@ feriados_validacion AS (
              AND f.es_especial = FALSE
              AND f.turno_realizado = TRUE
              AND NOT EXISTS (
-                 SELECT 1 FROM public.feriado_trabajado ft
+                 SELECT 1 
+                 FROM public.feriado_trabajado ft
                  WHERE ft.empleado_id = f.empleado_id
-                 AND ft.fecha = f.fecha
+                 AND ft.feriado_id = f.feriado_id
              )
             THEN TRUE ELSE FALSE
         END AS feriado_trabajado_no_registrado,
@@ -64,84 +59,14 @@ feriados_validacion AS (
              AND f.es_especial = TRUE
              AND f.turno_realizado = TRUE
              AND NOT EXISTS (
-                 SELECT 1 FROM public.feriado_especial_trabajado fe
+                 SELECT 1 
+                 FROM public.feriado_especial_trabajado fe
                  WHERE fe.empleado_id = f.empleado_id
-                 AND fe.fecha = f.fecha
+                 AND fe.feriado_id = f.feriado_id
              )
             THEN TRUE ELSE FALSE
         END AS feriado_especial_no_registrado
     FROM feriados f
-),
-
-conteo_area AS (
-    SELECT
-        fecha,
-        area,
-        COUNT(*) AS cantidad,
-        COUNT(*) FILTER (WHERE subturno = 'intermedio') AS intermedios,
-        COUNT(*) FILTER (WHERE tipo_turno = 'maniana') AS maniana,
-        COUNT(*) FILTER (WHERE tipo_turno = 'tarde') AS tarde
-    FROM public.turnos_personal
-    GROUP BY fecha, area
-),
-
-validaciones_area AS (
-    SELECT
-        fv.*,
-        ca.cantidad,
-        ca.intermedios,
-        ca.maniana,
-        ca.tarde,
-
-        -- Persona sin asignación
-        CASE 
-            WHEN fv.turno_realizado = FALSE
-             AND fv.estado NOT IN ('franco','descanso')
-            THEN TRUE ELSE FALSE
-        END AS persona_sin_asignacion,
-
-        -- Exceso de personal
-        CASE 
-            WHEN fv.area = 'lavadero' AND ca.cantidad > 4 THEN TRUE
-            WHEN fv.area = 'plancha' AND ca.cantidad > 7 THEN TRUE
-            WHEN fv.area = 'toallas' AND ca.cantidad > 3 THEN TRUE
-            ELSE FALSE
-        END AS exceso_personal,
-
-        -- Falta intermedio en lavadero cuando hay 3
-        CASE 
-            WHEN fv.area = 'lavadero'
-             AND ca.cantidad = 3
-             AND ca.intermedios = 0
-            THEN TRUE ELSE FALSE
-        END AS falta_intermedio,
-
-        -- Intermedio fuera de lugar
-        CASE 
-            WHEN fv.area = 'lavadero'
-             AND ca.cantidad = 4
-             AND ca.intermedios > 0
-            THEN TRUE ELSE FALSE
-        END AS intermedio_fuera_de_lugar,
-
-        -- Distribución incorrecta mañana/tarde
-        CASE 
-            WHEN fv.area = 'lavadero'
-             AND ca.cantidad = 4
-             AND NOT (ca.maniana = 2 AND ca.tarde = 2)
-            THEN TRUE ELSE FALSE
-        END AS distribucion_incorrecta,
-
-        -- Polivalencia inválida
-        CASE 
-            WHEN fv.area = 'reparto' AND fv.subturno NOT IN ('partido','unico')
-            THEN TRUE ELSE FALSE
-        END AS polivalencia_invalida
-
-    FROM feriados_validacion fv
-    LEFT JOIN conteo_area ca
-        ON ca.fecha = fv.fecha
-        AND ca.area = fv.area
 ),
 
 validaciones_final AS (
@@ -162,23 +87,15 @@ validaciones_final AS (
             THEN TRUE ELSE FALSE
         END AS dia_trabajado_sin_turno,
 
-        -- Doble turno no registrado
-        CASE 
-            WHEN v.subturno = 'doble'
-             AND v.horas_extra = 0
-            THEN TRUE ELSE FALSE
-        END AS doble_turno_no_registrado,
+        -- Doble turno no registrado (sin subturno → siempre FALSE)
+        FALSE AS doble_turno_no_registrado,
 
-        -- Medio turno extra no registrado
-        CASE 
-            WHEN v.subturno = 'medio_extra'
-             AND v.horas_extra = 0
-            THEN TRUE ELSE FALSE
-        END AS medio_turno_extra_no_registrado,
+        -- Medio turno extra no registrado (sin subturno → siempre FALSE)
+        FALSE AS medio_turno_extra_no_registrado,
 
         -- Semana desbalanceada (placeholder)
         FALSE AS semana_desbalanceada
-    FROM validaciones_area v
+    FROM feriados_validacion v
 ),
 
 sugerencias AS (
@@ -190,25 +107,16 @@ sugerencias AS (
             WHEN vf.semana_desbalanceada = TRUE THEN 'sugerir_descanso_obligatorio'
             WHEN vf.feriado_trabajado_no_registrado = TRUE THEN 'registrar_feriado_trabajado'
             WHEN vf.feriado_especial_no_registrado = TRUE THEN 'registrar_feriado_especial'
-            WHEN vf.doble_turno_no_registrado = TRUE THEN 'registrar_doble_turno'
-            WHEN vf.medio_turno_extra_no_registrado = TRUE THEN 'registrar_medio_extra'
+            WHEN vf.dia_trabajado_sin_turno = TRUE THEN 'asignar_turno'
 
-            -- PRIORIDAD 2: operativas fuertes
-            WHEN vf.area = 'lavadero' AND vf.cantidad < 3 THEN 'refuerzo_lavadero'
-            WHEN vf.area = 'plancha' AND vf.maniana < 3 THEN 'refuerzo_plancha_maniana'
-            WHEN vf.area = 'plancha' AND vf.tarde < 4 THEN 'refuerzo_plancha_tarde'
-            WHEN vf.area = 'toallas' AND vf.cantidad < 2 THEN 'refuerzo_toallas'
-
-            -- PRIORIDAD 3: reasignación
-            WHEN vf.area = 'plancha' AND vf.maniana = 4 AND vf.tarde = 2 THEN 'reasignar_plancha_tarde'
-            WHEN vf.area = 'lavadero' AND vf.intermedio_fuera_de_lugar = TRUE THEN 'reorganizar_lavadero'
-
-            -- PRIORIDAD 4: apoyo
-            WHEN vf.area = 'guardapolvos' AND vf.turno_realizado = FALSE THEN 'apoyo_lavadero'
-            WHEN vf.area = 'desmanche' AND vf.turno_realizado = FALSE THEN 'apoyo_guardapolvos'
+            -- PRIORIDAD 2: operativas fuertes (sin área → no aplican)
+            -- PRIORIDAD 3: reasignación (sin área → no aplican)
+            -- PRIORIDAD 4: apoyo (sin área → no aplican)
 
             -- PRIORIDAD 5: disponibilidad
-            WHEN vf.persona_sin_asignacion = TRUE THEN 'asignar_turno'
+            WHEN vf.turno_realizado = FALSE
+             AND vf.estado NOT IN ('franco','descanso','vacaciones','enfermo')
+            THEN 'asignar_turno'
 
             ELSE NULL
         END AS sugerencia

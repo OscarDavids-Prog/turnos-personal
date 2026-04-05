@@ -43,13 +43,15 @@ BEGIN
     END IF;
 END $$;
 
--- Trigger para actualizar timestamp
-DO $$
+DO $block$
 BEGIN
+    -- Crear función si no existe
     IF NOT EXISTS (
-        SELECT 1 FROM pg_trigger
-        WHERE tgname = 'trg_turnos_personal_actualizado_en'
+        SELECT 1
+        FROM pg_proc
+        WHERE proname = 'fn_turnos_personal_actualizado_en'
     ) THEN
+        EXECUTE $func$
         CREATE OR REPLACE FUNCTION public.fn_turnos_personal_actualizado_en()
         RETURNS TRIGGER AS $$
         BEGIN
@@ -57,9 +59,21 @@ BEGIN
             RETURN NEW;
         END;
         $$ LANGUAGE plpgsql;
+        $func$;
+    END IF;
 
+    -- Crear trigger si no existe
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_trigger
+        WHERE tgname = 'trg_turnos_personal_actualizado_en'
+    ) THEN
+        EXECUTE $trg$
         CREATE TRIGGER trg_turnos_personal_actualizado_en
         BEFORE UPDATE ON public.turnos_personal
-        FOR EACH ROW EXECUTE FUNCTION public.fn_turnos_personal_actualizado_en();
+        FOR EACH ROW
+        EXECUTE FUNCTION public.fn_turnos_personal_actualizado_en();
+        $trg$;
     END IF;
-END $$;
+END;
+$block$;

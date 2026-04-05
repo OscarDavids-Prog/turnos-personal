@@ -23,15 +23,11 @@ base AS (
         SUM(CASE WHEN jornal_equivalente = 0 THEN 1 ELSE 0 END) AS dias_descanso,
 
         -- Licencias
-        SUM(CASE WHEN tipo_equivalencia = 'licencia' THEN 1 ELSE 0 END) AS dias_licencia,
-
-        -- Flags mensuales
-        BOOL_OR(requiere_compensacion) AS requiere_compensacion_mes,
-        BOOL_OR(requiere_liquidacion) AS requiere_liquidacion_mes,
-        BOOL_OR(requiere_revision) AS requiere_revision_mes
+        SUM(CASE WHEN tipo_equivalencia = 'licencia' THEN 1 ELSE 0 END) AS dias_licencia
     FROM v4
     GROUP BY empleado_id, date_trunc('month', fecha)
 )
+
 SELECT
     b.empleado_id,
     e.nombre,
@@ -47,12 +43,7 @@ SELECT
     -- Cantidades de días
     b.dias_trabajados,
     b.dias_descanso,
-    b.dias_licencia,
-
-    -- Flags mensuales
-    b.requiere_compensacion_mes,
-    b.requiere_liquidacion_mes,
-    b.requiere_revision_mes
+    b.dias_licencia
 
 FROM base b
 LEFT JOIN public.empleados e ON e.id = b.empleado_id

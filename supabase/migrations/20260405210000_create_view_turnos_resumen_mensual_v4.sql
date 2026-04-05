@@ -29,69 +29,42 @@ equivalencias AS (
     SELECT
         b.*,
 
-        -- Tipo de equivalencia
+        -- Tipo de equivalencia (sin subturno, sin área)
         CASE
             WHEN b.feriado_especial_no_registrado = TRUE THEN 'feriado_especial'
             WHEN b.feriado_trabajado_no_registrado = TRUE THEN 'feriado'
-            WHEN b.subturno = 'doble' THEN 'doble_turno'
-            WHEN b.subturno = 'medio_extra' THEN 'medio_extra'
             WHEN b.estado IN ('vacaciones','enfermo') THEN 'licencia'
             WHEN b.turno_realizado = TRUE THEN 'normal'
             ELSE 'descanso'
         END AS tipo_equivalencia,
 
-        -- Jornal equivalente según reglas
+        -- Jornal equivalente
         CASE
-            -- Feriado especial trabajado
             WHEN b.feriado_especial_no_registrado = TRUE THEN 2.5
-
-            -- Feriado trabajado
             WHEN b.feriado_trabajado_no_registrado = TRUE THEN 2
-
-            -- Doble turno
-            WHEN b.subturno = 'doble' THEN 2
-
-            -- Medio turno extra
-            WHEN b.subturno = 'medio_extra' AND b.es_mensual THEN 1
-            WHEN b.subturno = 'medio_extra' AND b.es_jornalizado THEN 1.5
-
-            -- Vacaciones / Enfermo
             WHEN b.estado IN ('vacaciones','enfermo') THEN 1
-
-            -- Día normal trabajado
             WHEN b.turno_realizado = TRUE THEN 1
-
-            -- Descanso / Franco
             ELSE 0
         END AS jornal_equivalente,
 
         -- Jornal extra (solo excedente)
         CASE
-            -- Feriado especial trabajado
             WHEN b.feriado_especial_no_registrado = TRUE AND b.es_mensual THEN 1.5
             WHEN b.feriado_especial_no_registrado = TRUE AND b.es_jornalizado THEN 2.5
 
-            -- Feriado trabajado
             WHEN b.feriado_trabajado_no_registrado = TRUE AND b.es_mensual THEN 1
             WHEN b.feriado_trabajado_no_registrado = TRUE AND b.es_jornalizado THEN 2
-
-            -- Doble turno
-            WHEN b.subturno = 'doble' AND b.es_mensual THEN 1
-            WHEN b.subturno = 'doble' AND b.es_jornalizado THEN 2
-
-            -- Medio turno extra
-            WHEN b.subturno = 'medio_extra' AND b.es_mensual THEN 0.5
-            WHEN b.subturno = 'medio_extra' AND b.es_jornalizado THEN 1.5
 
             ELSE 0
         END AS jornal_extra
     FROM base b
 ),
+
 acumulados AS (
     SELECT
         e.*,
 
-        -- Acumulado semanal (lunes a domingo)
+        -- Acumulado semanal
         SUM(e.jornal_equivalente) OVER (
             PARTITION BY e.empleado_id, date_trunc('week', e.fecha)
             ORDER BY e.fecha
@@ -141,7 +114,6 @@ totales_mensuales AS (
     FROM acumulados a
 )
 
-SELECT
-    *
+SELECT *
 FROM totales_mensuales
 ORDER BY empleado_id, fecha;

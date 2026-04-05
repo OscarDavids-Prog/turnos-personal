@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS public.especial_rotacion (
 DO $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM pg_indexes
+        SELECT 1
+        FROM pg_indexes
         WHERE indexname = 'idx_especial_rotacion_feriado_anio'
     ) THEN
         CREATE UNIQUE INDEX idx_especial_rotacion_feriado_anio
@@ -26,20 +27,23 @@ END $$;
 DO $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM pg_trigger
+        SELECT 1
+        FROM pg_trigger
         WHERE tgname = 'trg_especial_rotacion_actualizado_en'
     ) THEN
 
         CREATE OR REPLACE FUNCTION public.fn_especial_rotacion_actualizado_en()
-        RETURNS TRIGGER AS $$
+        RETURNS TRIGGER
+        AS $func$
         BEGIN
             NEW.actualizado_en = now();
             RETURN NEW;
         END;
-        $$ LANGUAGE plpgsql;
+        $func$ LANGUAGE plpgsql;
 
         CREATE TRIGGER trg_especial_rotacion_actualizado_en
         BEFORE UPDATE ON public.especial_rotacion
-        FOR EACH ROW EXECUTE FUNCTION public.fn_especial_rotacion_actualizado_en();
+        FOR EACH ROW
+        EXECUTE FUNCTION public.fn_especial_rotacion_actualizado_en();
     END IF;
 END $$;
