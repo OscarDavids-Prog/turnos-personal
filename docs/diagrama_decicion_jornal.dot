@@ -1,0 +1,14 @@
+digraph JornalDecision {
+    rankdir=TB;
+    node [shape=diamond, style=rounded];
+
+    modalidad [label="modalidad = sueldo?"];
+    tipo [label="tipo_relacion = mensual?"];
+    mensual [shape=box, label="Empleado mensual\n(jornal base incluido)"];
+    jornal [shape=box, label="Empleado jornalizado\n(se liquida todo)"];
+
+    modalidad -> mensual [label="sí"];
+    modalidad -> tipo [label="no"];
+    tipo -> mensual [label="sí"];
+    tipo -> jornal [label="no"];
+}
