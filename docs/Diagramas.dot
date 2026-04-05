@@ -1,0 +1,19 @@
+digraph V4_Equivalencias {
+    rankdir=LR;
+    node [shape=box, style=rounded];
+
+    v3 [label="v3 (datos operativos)"];
+    empleados [label="empleados (modalidad / tipo_relacion)"];
+    base [label="base\n(join v3 + empleados)"];
+    equivalencias [label="equivalencias\n(jornal_equivalente / extra)"];
+    acumulados [label="acumulados\n(semana / mes)"];
+    totales [label="totales mensuales"];
+    v4 [label="view_turnos_resumen_mensual_v4"];
+
+    v3 -> base;
+    empleados -> base;
+    base -> equivalencias;
+    equivalencias -> acumulados;
+    acumulados -> totales;
+    totales -> v4;
+}
