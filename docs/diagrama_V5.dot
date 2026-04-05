@@ -1,0 +1,17 @@
+digraph V5 {
+    rankdir=LR;
+    node [shape=box, style=rounded];
+
+    v4 [label="V4\n(día por día)"];
+    group [label="Agrupación mensual\n(GROUP BY empleado, mes)"];
+    totales [label="Totales mensuales\n(jornal, extra, tipos)"];
+    flags [label="Flags mensuales\n(compensación, liquidación, revisión)"];
+    join [label="Join empleados\n(nombre)"];
+    v5 [label="V5\n(resumen mensual por empleado)"];
+
+    v4 -> group;
+    group -> totales;
+    totales -> flags;
+    flags -> join;
+    join -> v5;
+}
