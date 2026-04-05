@@ -10,14 +10,15 @@ CREATE TABLE IF NOT EXISTS public.feriados (
     actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Trigger para actualizar timestamp
-DO $$
+DO $block$
 BEGIN
+    -- Crear función si no existe
     IF NOT EXISTS (
-        SELECT 1 FROM pg_trigger
-        WHERE tgname = 'trg_feriados_actualizado_en'
+        SELECT 1
+        FROM pg_proc
+        WHERE proname = 'fn_feriados_actualizado_en'
     ) THEN
-
+        EXECUTE $func$
         CREATE OR REPLACE FUNCTION public.fn_feriados_actualizado_en()
         RETURNS TRIGGER AS $$
         BEGIN
@@ -25,17 +26,21 @@ BEGIN
             RETURN NEW;
         END;
         $$ LANGUAGE plpgsql;
+        $func$;
+    END IF;
 
+    -- Crear trigger si no existe
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_trigger
+        WHERE tgname = 'trg_feriados_actualizado_en'
+    ) THEN
+        EXECUTE $trg$
         CREATE TRIGGER trg_feriados_actualizado_en
         BEFORE UPDATE ON public.feriados
-        FOR EACH ROW EXECUTE FUNCTION public.fn_feriados_actualizado_en();
+        FOR EACH ROW
+        EXECUTE FUNCTION public.fn_feriados_actualizado_en();
+        $trg$;
     END IF;
-END $$;
-
--- Seed inicial de feriados especiales (idempotente)
-INSERT INTO public.feriados (fecha, descripcion, es_especial)
-VALUES 
-    ('2026-01-01', 'Año Nuevo', true),
-    ('2026-05-01', 'Día del Trabajador', true),
-    ('2026-12-25', 'Navidad', true)
-ON CONFLICT (fecha) DO NOTHING;
+END;
+$block$;
