@@ -1,6 +1,7 @@
 # `public.fn_dotacion_dia` — Función diaria de dotación por área y bloque
 
-> **Migración:** `20260406150000_create_fn_dotacion_dia.sql`
+> **Migración original:** `20260406150000_create_fn_dotacion_dia.sql`
+> **Parche de tipos:** `20260406160000_patch_fn_dotacion_dia_types.sql`
 > **Fecha:** 2026-04-06
 
 ---
@@ -35,13 +36,13 @@ LANGUAGE sql STABLE
 | `area_codigo` | `text` | Código del área (ej. `'plancha'`) |
 | `area_nombre` | `text` | Nombre del área (ej. `'Plancha'`) |
 | `bloque` | `text` | `'maniana'` o `'tarde'` |
-| `cobertura` | `numeric` | Sumatoria de aportes reales de empleados activos en ese bloque |
+| `cobertura` | `numeric` | Sumatoria de aportes reales de empleados activos en ese bloque. Siempre `numeric` (0.0, 0.5, 1.0…). |
 | `min_recomendado` | `int` | Mínimo configurado (default `0` si no hay config) |
 | `max_recomendado` | `int` | Máximo configurado (default `999` si no hay config) |
 | `min_intermedios` | `int` | Mínimo de turnos intermedios (default `0`) |
 | `max_intermedios` | `int` | Máximo de turnos intermedios (default `999`) |
-| `faltan` | `numeric` | `greatest(min_recomendado − cobertura, 0)` |
-| `sobran` | `numeric` | `greatest(cobertura − max_recomendado, 0)` |
+| `faltan` | `numeric` | `greatest(min_recomendado − cobertura, 0)`. Siempre `numeric` (nunca integer). |
+| `sobran` | `numeric` | `greatest(cobertura − max_recomendado, 0)`. Siempre `numeric` (nunca integer). |
 | `empleados` | `jsonb` | Array JSON de empleados que aportan a ese bloque (ver estructura abajo) |
 
 ### Estructura del array `empleados`
@@ -59,7 +60,8 @@ LANGUAGE sql STABLE
 ]
 ```
 
-- `es_descanso`: `true` si `p_fecha` coincide con el `descanso_habitual_dia` o el `descanso_alternativo_dia` del empleado.
+- `aporte_maniana` / `aporte_tarde`: siempre `numeric` (0.0 / 0.5 / 1.0). Nunca entero.
+- `es_descanso`: `boolean NOT NULL`. `true` si `p_fecha` coincide con el `descanso_habitual_dia` o el `descanso_alternativo_dia` del empleado; `false` cuando no tiene descanso configurado (nunca `null`).
 - El array es `[]` (vacío) si ningún empleado activo aporta a ese bloque ese día.
 
 ---
