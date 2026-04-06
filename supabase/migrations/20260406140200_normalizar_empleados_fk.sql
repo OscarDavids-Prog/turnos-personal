@@ -61,7 +61,8 @@ BEGIN
         SET asignacion_secundaria_1_area_id = at.id
         FROM public.areas_turnos at
         WHERE lower(e.asignacion_secundaria_1) = at.codigo
-          AND e.asignacion_secundaria_1 IS NOT NULL;
+          AND e.asignacion_secundaria_1 IS NOT NULL
+          AND e.asignacion_secundaria_1_area_id IS NULL;
     END IF;
 
     -- Backfill asignacion_secundaria_2 → asignacion_secundaria_2_area_id
@@ -75,7 +76,8 @@ BEGIN
         SET asignacion_secundaria_2_area_id = at.id
         FROM public.areas_turnos at
         WHERE lower(e.asignacion_secundaria_2) = at.codigo
-          AND e.asignacion_secundaria_2 IS NOT NULL;
+          AND e.asignacion_secundaria_2 IS NOT NULL
+          AND e.asignacion_secundaria_2_area_id IS NULL;
     END IF;
 
     -- Backfill descanso_habitual (texto) → descanso_habitual_dia (1..7)
@@ -89,7 +91,8 @@ BEGIN
         SET descanso_habitual_dia = ds.id
         FROM public.dias_semana ds
         WHERE lower(e.descanso_habitual) = ds.nombre
-          AND e.descanso_habitual IS NOT NULL;
+          AND e.descanso_habitual IS NOT NULL
+          AND e.descanso_habitual_dia IS NULL;
     END IF;
 
     -- Backfill descanso_alternativo (texto) → descanso_alternativo_dia (1..7)
@@ -103,7 +106,8 @@ BEGIN
         SET descanso_alternativo_dia = ds.id
         FROM public.dias_semana ds
         WHERE lower(e.descanso_alternativo) = ds.nombre
-          AND e.descanso_alternativo IS NOT NULL;
+          AND e.descanso_alternativo IS NOT NULL
+          AND e.descanso_alternativo_dia IS NULL;
     END IF;
 END
 $$;
